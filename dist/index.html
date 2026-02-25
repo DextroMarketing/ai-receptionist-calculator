@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Receptionist Cost Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #13131a; --surface2: #1c1c27; --border: #2a2a3a;
+    --accent: #00e5a0; --accent2: #7c6dfa; --warn: #ff6b6b; --text: #e8e8f0; --muted: #6b6b85;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; padding: 40px 20px; }
+  body::before {
+    content: ''; position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(ellipse, rgba(124,109,250,0.12) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .container { max-width: 960px; margin: 0 auto; position: relative; z-index: 1; }
+  header { margin-bottom: 48px; }
+  .eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; }
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent2); }
+  .subtitle { margin-top: 12px; color: var(--muted); font-size: 14px; font-family: 'DM Mono', monospace; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .card.full { grid-column: 1 / -1; }
+  .card.accent-border { border-color: var(--accent2); }
+  .card-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+  .input-group { margin-bottom: 18px; }
+  .input-group:last-child { margin-bottom: 0; }
+  label { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text); margin-bottom: 8px; }
+  label .val { font-family: 'DM Mono', monospace; color: var(--accent); font-size: 13px; }
+  input[type="range"] { width: 100%; height: 4px; appearance: none; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px rgba(0,229,160,0.4); transition: transform 0.1s; }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; }
+  .stat-row .amount { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .stat-row .amount.green { color: var(--accent); }
+  .stat-row .amount.purple { color: var(--accent2); }
+  .stat-row .amount.red { color: var(--warn); }
+  .big-number { font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin: 8px 0; }
+  .big-number.green { color: var(--accent); }
+  .big-number.purple { color: var(--accent2); }
+  .big-number.red { color: var(--warn); }
+  .big-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .profit-bar-wrap { background: var(--surface2); border-radius: 8px; height: 12px; margin-top: 12px; overflow: hidden; position: relative; }
+  .profit-bar { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .cost-bar { position: absolute; top: 0; left: 0; height: 100%; border-radius: 8px; background: var(--warn); opacity: 0.5; transition: width 0.4s ease; }
+  .bar-labels { display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 12px; }
+  th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(42,42,58,0.5); }
+  tr:last-child td { border-bottom: none; }
+  tr.highlight td { background: rgba(0,229,160,0.05); }
+  tr.highlight td:first-child { border-left: 2px solid var(--accent); }
+  .tag { display: inline-block; font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: 4px; background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.2); }
+  .tag.red { background: rgba(255,107,107,0.1); color: var(--warn); border-color: rgba(255,107,107,0.2); }
+  .clients-goal { margin-top: 8px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+  .clients-goal span { color: var(--accent2); font-weight: 500; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .breakdown { background: var(--surface2); border-radius: 10px; padding: 14px 16px; margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .breakdown .brow { display: flex; justify-content: space-between; padding: 5px 0; color: var(--muted); border-bottom: 1px solid rgba(42,42,58,0.4); }
+  .breakdown .brow:last-child { border-bottom: none; }
+  .breakdown .brow.total { color: var(--text); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+  .breakdown .brow.takehome { font-size: 14px; font-weight: 600; padding-top: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="eyebrow">// cost calculator</div>
+    <h1>AI Receptionist<br><span>Profit Engine</span></h1>
+    <div class="subtitle">vapi + twilio · stripe fees · tax · real take-home</div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">// per-call costs</div>
+      <div class="input-group">
+        <label>Voice cost (£/min) <span class="val" id="v-vapi">£0.13</span></label>
+        <input type="range" id="vapi" min="0.05" max="0.30" step="0.01" value="0.13">
+      </div>
+      <div class="input-group">
+        <label>Avg call length (mins) <span class="val" id="v-call">2 min</span></label>
+        <input type="range" id="calllen" min="1" max="10" step="0.5" value="2">
+      </div>
+      <div class="input-group">
+        <label>SMS per call <span class="val" id="v-sms-count">1</span></label>
+        <input type="range" id="smscnt" min="0" max="3" step="1" value="1">
+      </div>
+      <div class="input-group">
+        <label>SMS cost (£ each) <span class="val" id="v-sms">£0.04</span></label>
+        <input type="range" id="sms" min="0.01" max="0.15" step="0.01" value="0.04">
+      </div>
+      <div class="input-group">
+        <label>Phone number (£/mo) <span class="val" id="v-num">£0.84</span></label>
+        <input type="range" id="numcost" min="0.50" max="5" step="0.01" value="0.83663">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">// business settings</div>
+      <div class="input-group">
+        <label>Calls per day <span class="val" id="v-cpd">5</span></label>
+        <input type="range" id="cpd" min="1" max="100" step="1" value="5">
+      </div>
+      <div class="input-group">
+        <label>Monthly price charged (£) <span class="val" id="v-price">£99</span></label>
+        <input type="range" id="price" min="50" max="1000" step="1" value="99">
+      </div>
+      <div class="input-group">
+        <label>Tax rate (%) <span class="val" id="v-tax">20%</span></label>
+        <input type="range" id="taxrate" min="0" max="45" step="1" value="20">
+      </div>
+      <div class="input-group">
+        <label>Take-home target (£/mo) <span class="val" id="v-target">£5,000</span></label>
+        <input type="range" id="target" min="500" max="20000" step="500" value="5000">
+      </div>
+      <div class="divider"></div>
+      <div class="stat-row">
+        <span class="label">Cost per call</span>
+        <span class="amount purple" id="cost-per-call">£0.30</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Monthly calls</span>
+        <span class="amount" id="monthly-calls">150</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Hosting cost/mo</span>
+        <span class="amount red" id="monthly-cost">£45.84</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Stripe fee/mo</span>
+        <span class="amount red" id="stripe-fee">£1.69</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card accent-border">
+      <div class="card-label">// per client — full breakdown</div>
+      <div class="breakdown">
+        <div class="brow"><span>Revenue</span><span id="b-rev" style="color:var(--text)">£99.00</span></div>
+        <div class="brow"><span>Hosting (Vapi + Twilio)</span><span id="b-host" style="color:var(--warn)">−£45.84</span></div>
+        <div class="brow"><span>Stripe (1.5% + 20p)</span><span id="b-stripe" style="color:var(--warn)">−£1.69</span></div>
+        <div class="brow total"><span>Gross profit</span><span id="b-gross">£51.47</span></div>
+        <div class="brow"><span>Income tax (<span id="b-taxpct">20</span>%)</span><span id="b-tax" style="color:var(--warn)">−£10.29</span></div>
+        <div class="brow takehome"><span>TAKE-HOME</span><span id="b-home" style="color:var(--accent)">£41.18</span></div>
+      </div>
+      <div class="big-label" style="margin-top:16px">take-home margin</div>
+      <div class="profit-bar-wrap">
+        <div class="profit-bar" id="profit-bar" style="width:42%"></div>
+        <div class="cost-bar" id="cost-bar" style="width:58%"></div>
+      </div>
+      <div class="bar-labels">
+        <span id="bar-cost-label">costs 58%</span>
+        <span id="bar-profit-label">take-home 42%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">// clients to hit target</div>
+      <div class="big-label">clients needed for</div>
+      <div class="big-number purple" id="clients-needed">122</div>
+      <div class="clients-goal">to take home <span id="target-display">£5,000</span>/mo after tax</div>
+      <div class="divider"></div>
+      <div class="stat-row">
+        <span class="label">Total revenue</span>
+        <span class="amount" id="target-revenue">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Hosting + Stripe</span>
+        <span class="amount red" id="target-costs">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Gross profit</span>
+        <span class="amount" id="target-gross">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Tax</span>
+        <span class="amount red" id="target-tax">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Take-home</span>
+        <span class="amount green" id="target-profit">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card full">
+    <div class="card-label">// scaling table — real take-home after all costs & tax</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Calls/day</th>
+          <th>Calls/mo</th>
+          <th>Hosting</th>
+          <th>Stripe</th>
+          <th>Gross</th>
+          <th>Take-home</th>
+          <th>Margin</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const g = id => document.getElementById(id);
+
+  const sliders = {
+    vapi:    { el: g('vapi'),    disp: g('v-vapi'),      fmt: v => `£${(+v).toFixed(2)}` },
+    calllen: { el: g('calllen'), disp: g('v-call'),      fmt: v => `${v} min` },
+    smscnt:  { el: g('smscnt'), disp: g('v-sms-count'),  fmt: v => v },
+    sms:     { el: g('sms'),    disp: g('v-sms'),        fmt: v => `£${(+v).toFixed(2)}` },
+    numcost: { el: g('numcost'), disp: g('v-num'),       fmt: v => `£${(+v).toFixed(2)}` },
+    cpd:     { el: g('cpd'),    disp: g('v-cpd'),        fmt: v => v },
+    price:   { el: g('price'),  disp: g('v-price'),      fmt: v => `£${+v}` },
+    taxrate: { el: g('taxrate'), disp: g('v-tax'),       fmt: v => `${v}%` },
+    target:  { el: g('target'), disp: g('v-target'),     fmt: v => `£${(+v).toLocaleString()}` },
+  };
+
+  const vals = () => ({
+    vapi:    +sliders.vapi.el.value,
+    calllen: +sliders.calllen.el.value,
+    smscnt:  +sliders.smscnt.el.value,
+    sms:     +sliders.sms.el.value,
+    numcost: +sliders.numcost.el.value,
+    cpd:     +sliders.cpd.el.value,
+    price:   +sliders.price.el.value,
+    tax:     +sliders.taxrate.el.value / 100,
+    target:  +sliders.target.el.value,
+  });
+
+  const stripe = p => p * 0.015 + 0.20;
+
+  function calcClient(v, cpd) {
+    const costPerCall = v.vapi * v.calllen + v.sms * v.smscnt;
+    const calls = cpd * 30;
+    const hosting = costPerCall * calls + v.numcost;
+    const stripeFee = stripe(v.price);
+    const gross = v.price - hosting - stripeFee;
+    const tax = gross > 0 ? gross * v.tax : 0;
+    const home = gross - tax;
+    const margin = v.price > 0 ? home / v.price * 100 : 0;
+    return { costPerCall, calls, hosting, stripeFee, gross, tax, home, margin };
+  }
+
+  const f = (n, p='£') => {
+    if (!isFinite(n)) return '∞';
+    return (n < 0 ? '-' : '') + p + Math.abs(n).toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2});
+  };
+
+  function update() {
+    for (const s of Object.values(sliders)) s.disp.textContent = s.fmt(s.el.value);
+
+    const v = vals();
+    const r = calcClient(v, v.cpd);
+
+    g('cost-per-call').textContent = f(r.costPerCall);
+    g('monthly-calls').textContent = r.calls;
+    g('monthly-cost').textContent = f(r.hosting);
+    g('stripe-fee').textContent = f(r.stripeFee);
+
+    g('b-rev').textContent = f(v.price);
+    g('b-host').textContent = '−' + f(r.hosting);
+    g('b-stripe').textContent = '−' + f(r.stripeFee);
+    g('b-gross').textContent = f(r.gross);
+    g('b-taxpct').textContent = (v.tax * 100).toFixed(0);
+    g('b-tax').textContent = '−' + f(r.tax);
+    g('b-home').textContent = f(r.home);
+    g('b-home').style.color = r.home >= 0 ? 'var(--accent)' : 'var(--warn)';
+
+    const mc = Math.max(0, Math.min(100, r.margin));
+    g('profit-bar').style.width = mc + '%';
+    g('cost-bar').style.width = (100 - mc) + '%';
+    g('bar-profit-label').textContent = `take-home ${mc.toFixed(0)}%`;
+    g('bar-cost-label').textContent = `costs ${(100-mc).toFixed(0)}%`;
+
+    const cn = r.home > 0 ? Math.ceil(v.target / r.home) : Infinity;
+    g('clients-needed').textContent = isFinite(cn) ? cn : '∞';
+    g('clients-needed').className = 'big-number ' + (isFinite(cn) ? 'purple' : 'red');
+    g('target-display').textContent = '£' + v.target.toLocaleString();
+
+    if (isFinite(cn)) {
+      const tRev = cn * v.price;
+      const tC = cn * (r.hosting + r.stripeFee);
+      const tG = tRev - tC;
+      const tT = tG > 0 ? tG * v.tax : 0;
+      const tH = tG - tT;
+      g('target-revenue').textContent = f(tRev);
+      g('target-costs').textContent = f(tC);
+      g('target-gross').textContent = f(tG);
+      g('target-tax').textContent = f(tT);
+      g('target-profit').textContent = f(tH);
+    }
+
+    const rows = [2, 5, 10, 20, 30, 50, 75, 100];
+    const tbody = g('table-body');
+    tbody.innerHTML = '';
+    rows.forEach(cpd => {
+      const rc = calcClient(v, cpd);
+      const isCurrent = cpd === v.cpd;
+      const tr = document.createElement('tr');
+      if (isCurrent) tr.className = 'highlight';
+      const tag = rc.home >= 0
+        ? `<span class="tag">${f(rc.home)}</span>`
+        : `<span class="tag red">${f(rc.home)}</span>`;
+      const mc2 = rc.margin.toFixed(0);
+      const mCol = rc.margin >= 40 ? 'var(--accent)' : rc.margin >= 15 ? 'var(--text)' : 'var(--warn)';
+      tr.innerHTML = `
+        <td>${cpd}/day</td>
+        <td>${rc.calls}</td>
+        <td style="color:var(--warn)">${f(rc.hosting)}</td>
+        <td style="color:var(--warn)">${f(rc.stripeFee)}</td>
+        <td style="color:var(--accent2)">${f(rc.gross)}</td>
+        <td>${tag}</td>
+        <td style="color:${mCol}">${mc2}%</td>
+        <td>${isCurrent ? '<span style="color:var(--accent);font-size:10px">◀ you</span>' : ''}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  for (const s of Object.values(sliders)) s.el.addEventListener('input', update);
+  update();
+</script>
+</body>
+</html>
